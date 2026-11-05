@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A1D21">
+<title>Bare conductor heating setup</title>
+<style>
+  :root{
+    --bg:#E4E7EA;
+    --panel:#FFFFFF;
+    --ink:#1A1D21;
+    --soft:#5A626B;
+    --line:#C3C9CF;
+    --signal:#FFC72C;
+    --ok:#1E7A46;
+    --warn:#B3261E;
+    --font:"Bahnschrift","DIN Alternate","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    font-family:var(--font);
+    background:var(--bg);
+    color:var(--ink);
+    padding:max(14px, env(safe-area-inset-top)) 14px max(28px, env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  h1{font-size:26px;font-weight:700;margin:4px 0 2px;letter-spacing:-0.01em;}
+  .lead{color:var(--soft);font-size:15px;margin:0 0 16px;}
+
+  .cols{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media (min-width:820px){ .cols{grid-template-columns:1fr 1fr;align-items:start;} .results{position:sticky;top:14px;} }
+
+  .group{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 14px 4px;margin-bottom:14px;}
+  .group h2{font-size:18px;margin:0 0 10px;font-weight:700;}
+  .field{margin-bottom:14px;}
+  .field > label, .field > .lbl{display:block;font-size:15px;color:var(--soft);margin-bottom:6px;}
+  input[type=number]{
+    width:100%;font:inherit;font-size:24px;font-weight:600;
+    padding:10px 12px;border:2px solid var(--line);border-radius:6px;background:#FAFBFB;color:var(--ink);
+  }
+  input[type=number]:focus{outline:3px solid var(--signal);outline-offset:1px;border-color:var(--ink);}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .unit{font-size:15px;color:var(--soft);}
+
+  .seg{display:flex;flex-wrap:wrap;gap:6px;}
+  .seg button{
+    flex:1 1 auto;min-width:64px;min-height:48px;
+    font:inherit;font-size:18px;font-weight:600;
+    border:2px solid var(--line);background:#FAFBFB;color:var(--ink);border-radius:6px;cursor:pointer;padding:6px 10px;
+  }
+  .seg button:disabled{opacity:0.35;cursor:not-allowed;}
+  .seg button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .seg button:focus-visible{outline:3px solid var(--signal);outline-offset:2px;}
+
+  /* results */
+  .results{background:var(--panel);border:2px solid var(--ink);border-radius:6px;overflow:hidden;}
+  .band{background:var(--signal);padding:14px 16px;border-bottom:2px solid var(--ink);}
+  .band .big{font-size:56px;font-weight:700;line-height:1;letter-spacing:-0.02em;}
+  .band .big small{font-size:26px;font-weight:600;margin-left:6px;}
+  .band .sub{font-size:16px;margin-top:6px;}
+  .block{padding:14px 16px;border-bottom:1px solid var(--line);}
+  .block:last-child{border-bottom:none;}
+  .block h3{font-size:15px;color:var(--soft);font-weight:600;margin:0 0 6px;}
+  .count{font-size:34px;font-weight:700;line-height:1.1;}
+  .count small{font-size:18px;font-weight:600;color:var(--soft);}
+  .detail{font-size:17px;margin-top:4px;}
+  .cap{font-size:30px;font-weight:700;margin-top:6px;}
+  .cap div + div{margin-top:2px;}
+  .status{display:inline-block;margin-top:8px;font-size:15px;font-weight:700;padding:4px 10px;border-radius:4px;color:#fff;background:var(--ok);}
+  .status.bad{background:var(--warn);}
+  .empty{padding:24px 16px;font-size:18px;color:var(--soft);}
+  .hint{font-size:14px;color:var(--soft);margin-top:6px;line-height:1.4;}
+  [hidden]{display:none !important;}
+  .diagram{margin-top:10px;border:1px solid var(--line);border-radius:6px;padding:10px 10px 6px;background:#FAFBFB;}
+  .diagram h4{font-size:17px;margin:0 0 4px;}
+  .diagram svg{width:100%;height:auto;display:block;}
+  .diagram ol{margin:6px 0 4px;padding-left:20px;font-size:16px;line-height:1.45;}
+  .foot{color:var(--soft);font-size:14px;margin-top:14px;line-height:1.5;}
+
+  details.adv{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin-bottom:14px;}
+  details.adv summary{font-size:17px;font-weight:700;cursor:pointer;min-height:32px;}
+  .sketch{padding:10px 16px;border-bottom:1px solid var(--line);}
+  .sketch svg{width:100%;height:auto;display:block;}
+  .kv{display:grid;grid-template-columns:auto auto;gap:2px 16px;font-size:16px;margin-top:4px;}
+  .kv span:nth-child(odd){color:var(--soft);}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<div class="wrap">
+  <h1>Bare conductor heating setup</h1>
+  <p class="lead">Meander loop of bare conductor, heated by induced current. Fill in the conductor and the layout; the setup appears straight away.</p>
+
+  <div class="cols">
+    <div>
+      <section class="group">
+        <h2>Conductor</h2>
+        <div class="field">
+          <span class="lbl">Material</span>
+          <div class="seg" id="mat"></div>
+        </div>
+        <div class="field">
+          <label for="area">Cross-section <span class="unit">mm² (conducting part)</span></label>
+          <input id="area" type="number" inputmode="decimal" min="10" step="any" value="240">
+        </div>
+        <div class="field">
+          <label for="dia">Outer diameter <span class="unit">mm, optional</span></label>
+          <input id="dia" type="number" inputmode="decimal" min="1" step="any" placeholder="estimated">
+          <div class="hint" id="diaHint"></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Layout</h2>
+        <div class="field">
+          <span class="lbl">Number of legs (parallel runs)</span>
+          <div class="seg" id="legs"></div>
+        </div>
+        <div class="pair">
+          <div class="field">
+            <label for="L">Leg length <span class="unit">m</span></label>
+            <input id="L" type="number" inputmode="decimal" min="0.2" step="any" value="2.5">
+          </div>
+          <div class="field">
+            <label for="sp">Leg spacing <span class="unit">m</span></label>
+            <input id="sp" type="number" inputmode="decimal" min="0.05" step="any" value="0.5">
+          </div>
+        </div>
+        <div class="field">
+          <label for="g">Return conductor below the leg ends <span class="unit">m</span></label>
+          <input id="g" type="number" inputmode="decimal" min="0.05" step="any" value="0.3">
+          <div class="hint">The return conductor runs back under the leg ends, through the transformers.</div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Temperatures and heat-up</h2>
+        <div class="pair">
+          <div class="field">
+            <label for="tc">Conductor <span class="unit">°C</span></label>
+            <input id="tc" type="number" inputmode="decimal" step="any" value="125">
+          </div>
+          <div class="field">
+            <label for="ta">Room <span class="unit">°C</span></label>
+            <input id="ta" type="number" inputmode="decimal" step="any" value="20">
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl">Start current from</span>
+          <div class="seg" id="startBy"></div>
+        </div>
+        <div class="field" id="htField">
+          <label for="ht">Heat-up time <span class="unit">minutes, room to conductor temperature</span></label>
+          <input id="ht" type="number" inputmode="decimal" min="1" step="any" value="15">
+        </div>
+        <div class="field" id="boostField" hidden>
+          <label for="boost">Start-up overcurrent <span class="unit">% above the hold current</span></label>
+          <input id="boost" type="number" inputmode="decimal" min="1" max="200" step="any" value="20">
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Transformers</h2>
+        <div class="field">
+          <span class="lbl">Compensation transformers</span>
+          <div class="seg" id="nc"></div>
+        </div>
+        <div class="field">
+          <span class="lbl">Compensation voltage (capacitors)</span>
+          <div class="seg" id="uc"></div>
+          <div class="hint" id="ucHint"></div>
+        </div>
+        <div class="field">
+          <span class="lbl">Heating transformers</span>
+          <div class="seg" id="nh"></div>
+        </div>
+        <div class="field">
+          <span class="lbl">Heating transformer supply</span>
+          <div class="seg" id="uh"></div>
+          <div class="hint" id="uhHint"></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Compensation</h2>
+        <div class="field">
+          <span class="lbl">Capacitor cans per compensation transformer</span>
+          <div class="seg" id="cans"></div>
+          <div class="hint">Can: 400 V, 2 × 497.5 µF, 4 terminals. Seen from above: section 1 between A and B (back row), section 2 between C and D (front row). Red lines in the diagrams are links.</div>
+        </div>
+        <div class="field">
+          <span class="lbl">Aim for</span>
+          <div class="seg" id="mode"></div>
+        </div>
+        <div class="field" id="targetField" hidden>
+          <label for="vt">Heating transformer input while holding temperature <span class="unit">V</span></label>
+          <input id="vt" type="number" inputmode="decimal" min="10" step="any" value="200">
+          <div class="hint">Higher input voltage gives finer regulation on the autotransformer. The loop is deliberately under- or over-compensated to get there.</div>
+        </div>
+      </section>
+
+      <details class="adv">
+        <summary>Advanced</summary>
+        <div class="field" style="margin-top:10px">
+          <label for="eps">Surface emissivity</label>
+          <input id="eps" type="number" inputmode="decimal" min="0.05" max="1" step="any" value="0.3">
+          <div class="hint">New, bright conductor about 0.2–0.3; dull or weathered 0.5–0.9.</div>
+        </div>
+        <div class="field">
+          <label for="corr">Heat-loss correction <span class="unit">×</span></label>
+          <input id="corr" type="number" inputmode="decimal" min="0.2" max="3" step="any" value="0.93">
+          <div class="hint">0.93 is calibrated on one heat run: 95 mm² aluminium held at 125 °C with 355 A. Recalibrate with more runs: measured current² / current² calculated with 1.0, at the same temperature.</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="results" id="results" aria-live="polite"></div>
+  </div>
+
+  <p class="foot">Version 1.0 (2026-11-05). Method: heat balance for a bare conductor in still indoor air (natural convection and radiation as in CIGRE TB 601, no sun, no wind), AC resistance with skin effect (IEC 60287-1-1). Loop inductance from the partial inductances of all straight segments (Grover). Heat-loss correction 0.93 (calibrated on 95 mm² Al, 355 A at 125 °C). Heat-up time is for the conductor itself; connectors under test follow a few minutes later. Connections: 20 µΩ per joint, 3 per leg (test connector and both leg ends). 1:80 and 1:140 transformers max 230 V, 1:40 max 400 V. 50 Hz.</p>
+</div>
+
+<script>
+/* ---------- fixed data ---------- */
+const F = 50, SIGMA = 5.670374e-8, MU0 = 4e-7*Math.PI, RJOINT = 0.02; // RJOINT in mΩ per joint
+const MAT = {
+  Al:  { rho:2.8264e-8, a:0.00403, name:"Aluminium" },
+  AlA: { rho:3.284e-8,  a:0.00360, name:"Al alloy" },
+  Cu:  { rho:1.7241e-8, a:0.00393, name:"Copper" }
+};
+const SEC = 497.5; // µF per section: can 995 µF = 2 sections, 400 V rated
+const state = { mat:"Al", legs:6, nc:140, nh:140, uh:230, uc:230, mode:"full", cans:2, startBy:"time" };
+const UH_MAX = { 40:400, 80:230, 140:230 };
+const $ = id => document.getElementById(id);
+
+function seg(id, options, key){
+  const el = $(id);
+  el.innerHTML = "";
+  options.forEach(([val,label,disabled]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label;
+    b.disabled = !!disabled;
+    b.setAttribute("aria-pressed", String(state[key] === val));
+    b.onclick = () => { state[key] = val; enforce(); save(); renderSegs(); showFields(); calc(); };
+    el.appendChild(b);
+  });
+}
+function enforce(){
+  if(state.uh > UH_MAX[state.nh]) state.uh = UH_MAX[state.nh];
+  if(state.uc > UH_MAX[state.nc]) state.uc = UH_MAX[state.nc];
+}
+function renderSegs(){
+  seg("mat", [["Al","Aluminium"],["AlA","Al alloy"],["Cu","Copper"]], "mat");
+  seg("legs", [[2,"2"],[4,"4"],[6,"6"],[8,"8"],[10,"10"]], "legs");
+  seg("nc", [[40,"1:40"],[80,"1:80"],[140,"1:140"]], "nc");
+  seg("nh", [[40,"1:40"],[80,"1:80"],[140,"1:140"]], "nh");
+  seg("uh", [[230,"230 V"],[400,"400 V", UH_MAX[state.nh] < 400]], "uh");
+  seg("uc", [[230,"230 V"],[400,"400 V", UH_MAX[state.nc] < 400]], "uc");
+  seg("cans", [[1,"1 can"],[2,"2 cans"]], "cans");
+  seg("mode", [["full","Full compensation"],["target","Heating input voltage"],["min","Fewest transformers"]], "mode");
+  seg("startBy", [["time","Heat-up time"],["pct","Overcurrent %"]], "startBy");
+  $("ucHint").textContent = UH_MAX[state.nc] < 400 ? `1:${state.nc} transformers are rated 230 V.` : "1:40 transformers can run the capacitors at 230 V or 400 V.";
+  $("uhHint").textContent = UH_MAX[state.nh] < 400 ? `1:${state.nh} transformers are rated 230 V.` : "1:40 transformers can run on 230 V or 400 V.";
+}
+function showFields(){
+  $("targetField").hidden = state.mode !== "target";
+  $("htField").hidden = state.startBy !== "time";
+  $("boostField").hidden = state.startBy !== "pct";
+}
+
+/* ---------- heat balance for a bare conductor in still air (CIGRE TB 601) ---------- */
+function bareHeating(A, D, mat, tc, ta, eps, corr){
+  const m = MAT[mat], Dm = D/1000, dT = tc - ta;
+  const Rdc = m.rho/(A*1e-6)*(1 + m.a*(tc-20));          // Ω/m
+  const xs2 = 8*Math.PI*F/Rdc*1e-7;
+  const ys = xs2*xs2/(192 + 0.8*xs2*xs2);
+  const Rac = Rdc*(1+ys);
+  const Tf = (tc + ta)/2;
+  const lam = 2.368e-2 + 7.23e-5*Tf - 2.763e-8*Tf*Tf;        // W/(m·K)
+  const nu = 1.32e-5 + 9.5e-8*Tf;                              // m²/s
+  const Gr = 9.807*Dm**3*dT/((Tf+273.15)*nu*nu);
+  const Pr = 0.715 - 2.5e-4*Tf;
+  const GP = Gr*Pr;
+  const [Ac, mc] = GP < 1e2 ? [1.02,0.148] : GP < 1e4 ? [0.850,0.188] : GP < 1e6 ? [0.480,0.250] : [0.125,0.333];
+  const Nu = Ac*Math.pow(GP, mc);
+  const Pc = Math.PI*lam*dT*Nu;                                // W/m
+  const Prad = Math.PI*Dm*SIGMA*eps*((tc+273.15)**4 - (ta+273.15)**4);
+  const Q = corr*(Pc + Prad);
+  return { I: Math.sqrt(Q/Rac), Rac, Pc, Prad, Q };
+}
+
+/* ---------- heat-up: constant current from room temperature ----------
+   dθ/dt = (I²·R(θ) − losses(θ)) / (m·c), conductor metal only (connectors heat up later) */
+const CP = { Al:{ dens:2703, c:897 }, AlA:{ dens:2700, c:900 }, Cu:{ dens:8960, c:385 } };
+function heatTime(I, A, D, mat, tc, ta, eps, corr){
+  const mc = CP[mat].dens*A*1e-6*CP[mat].c;            // J/(m·K)
+  let T = ta, t = 0; const dt = 2, tmax = 6*3600;
+  while(T < tc){
+    const r = bareHeating(A, D, mat, Math.max(T, ta + 0.01), ta, eps, corr);
+    const P = I*I*r.Rac - r.Q;
+    if(P <= 0 || t > tmax) return Infinity;
+    T += P*dt/mc; t += dt;
+  }
+  return t;                                             // s
+}
+function startForTime(tsec, Iss, A, D, mat, tc, ta, eps, corr){
+  let lo = Iss*1.001, hi = Iss*1.5;
+  while(heatTime(hi, A, D, mat, tc, ta, eps, corr) > tsec && hi < Iss*6) hi *= 1.5;
+  if(heatTime(hi, A, D, mat, tc, ta, eps, corr) > tsec) return null;      // faster than possible
+  if(heatTime(lo, A, D, mat, tc, ta, eps, corr) <= tsec) return lo;
+  for(let k=0;k<30;k++){
+    const mid = (lo+hi)/2;
+    if(heatTime(mid, A, D, mat, tc, ta, eps, corr) > tsec) lo = mid; else hi = mid;
+  }
+  return hi;
+}
+
+/* ---------- meander geometry and inductance (partial inductances) ---------- */
+function meander(N, L, s, g){
+  const S = [], x = i => i*s;
+  for(let i=0;i<N;i++) S.push(i%2===0 ? [x(i),0,x(i),L] : [x(i),L,x(i),0]);            // legs
+  for(let i=0;i+1<N;i++) S.push(i%2===0 ? [x(i),L,x(i+1),L] : [x(i),0,x(i+1),0]);    // links
+  S.push([x(N-1),0,x(N-1),-g], [x(N-1),-g,0,-g], [0,-g,0,0]);                       // return
+  return S.map(([x1,y1,x2,y2]) => ({x1,y1,x2,y2}));
+}
+function selfL(l, r){ return MU0*l/(2*Math.PI)*(Math.log(2*l/r) - 1 + 0.25); }
+function Gf(u, d){
+  if(d > 1e-9) return u*Math.asinh(u/d) - Math.sqrt(u*u + d*d);
+  const a = Math.abs(u); return a > 0 ? a*Math.log(a) : 0;   // collinear limit (non-overlapping)
+}
+function mutualL(p, q){
+  const pv = p.x1 === p.x2, qv = q.x1 === q.x2;
+  if(pv !== qv) return 0;                                       // perpendicular
+  const [pa, pb, pc] = pv ? [p.y1, p.y2, p.x1] : [p.x1, p.x2, p.y1];
+  const [qa, qb, qc] = qv ? [q.y1, q.y2, q.x1] : [q.x1, q.x2, q.y1];
+  const sgn = Math.sign(pb-pa)*Math.sign(qb-qa);
+  const a1 = Math.min(pa,pb), b1 = Math.max(pa,pb), a2 = Math.min(qa,qb), b2 = Math.max(qa,qb);
+  const d = Math.abs(pc - qc);
+  return sgn*MU0/(4*Math.PI)*(Gf(b1-a2,d) - Gf(b1-b2,d) - Gf(a1-a2,d) + Gf(a1-b2,d));
+}
+function loopInductance(S, r){
+  let L = 0;
+  S.forEach(p => { L += selfL(Math.hypot(p.x2-p.x1, p.y2-p.y1), r); });
+  for(let i=0;i<S.length;i++) for(let j=i+1;j<S.length;j++) L += 2*mutualL(S[i], S[j]);
+  return L; // H
+}
+
+/* ---------- layout sketch ---------- */
+function sketchSVG(S, N, L, s, g){
+  const W = 360, H = 190, pad = 22;
+  const xmax = (N-1)*s, ymin = -g, ymax = L;
+  const k = Math.min((W-2*pad)/Math.max(xmax, 0.01), (H-2*pad-16)/(ymax-ymin));
+  const X = x => pad + x*k + ((W-2*pad) - xmax*k)/2, Y = y => pad + (ymax - y)*k;
+  let g1 = S.map(p => `<line x1="${X(p.x1)}" y1="${Y(p.y1)}" x2="${X(p.x2)}" y2="${Y(p.y2)}" stroke="#1A1D21" stroke-width="3" stroke-linecap="round"/>`).join("");
+  for(let i=0;i<N;i++) g1 += `<rect x="${X(i*s)-4}" y="${Y(L/2)-7}" width="8" height="14" fill="#FFC72C" stroke="#1A1D21" stroke-width="1.5"/>`;
+  const tx = X(xmax/2), ty = Y(-g);
+  g1 += `<rect x="${tx-38}" y="${ty-9}" width="76" height="18" rx="3" fill="#fff" stroke="#1A1D21" stroke-width="2"/><text x="${tx}" y="${ty+4}" font-size="10" text-anchor="middle">transformers</text>`;
+  g1 += `<text x="${X(0)-6}" y="${Y(L/2)}" font-size="11" text-anchor="end" fill="#5A626B">${fmt(L,2)} m</text>`;
+  g1 += `<text x="${(X(0)+X(s))/2}" y="${Y(L)-8}" font-size="11" text-anchor="middle" fill="#5A626B">${fmt(s,2)} m</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Layout sketch">${g1}</svg>`;
+}
+
+/* ---------- capacitor configurations from one or two cans ----------
+   Each can has two 497.5 µF sections sharing terminal N.
+   Can modes: "s" one section (1–N), "p" both sections in parallel (1+2 to one side, N to the other),
+              "r" both sections in series (1 and 2, N unused).
+   Two cans can be joined in parallel ("par") or in series ("ser"). */
+const MODE_C = { s:1, p:2, r:0.5 };
+function cfgValue(c){
+  const v = c.cans.map(m => MODE_C[m]*SEC);
+  if(v.length === 1) return v[0];
+  return c.join === "par" ? v[0]+v[1] : 1/(1/v[0] + 1/v[1]);
+}
+const CONFIGS = (() => {
+  const list = [];
+  const add = c => { c.v = cfgValue(c); if(!list.some(x => Math.abs(x.v - c.v) < 0.5)) list.push(c); };
+  ["r","s","p"].forEach(m => add({ cans:[m] }));                 // one can first: simplest wiring
+  const pairs = [["r","r"],["r","s"],["r","p"],["s","s"],["s","p"],["p","p"]];
+  pairs.forEach(pr => add({ cans:pr, join:"ser" }));
+  pairs.forEach(pr => add({ cans:pr, join:"par" }));
+  return list.sort((a,b) => a.v - b.v);
+})();
+function configs(){ return CONFIGS.filter(c => c.cans.length <= state.cans); }
+function cfgFloor(C){ let b=null; configs().forEach(c => { if(c.v <= C && (!b || c.v > b.v)) b = c; }); return b; }
+function cfgCeil(C){ let b=null; configs().forEach(c => { if(c.v >= C && (!b || c.v < b.v)) b = c; }); return b; }
+function cfgNearest(C){
+  const all = configs();
+  if(!(C > 0)) return all[all.length-1];
+  const fl = cfgFloor(C), ce = cfgCeil(C);
+  if(!fl) return ce; if(!ce) return fl;
+  return (ce.v - C) < (C - fl.v) ? ce : fl;
+}
+
+/* ---------- design search (full compensation or heating-input aim) ----------
+   For each compensation option (under or over) and unit count n: n−1 units get the same configuration
+   (just below or just above the ideal), the last unit gets the one just below or just above what is left.
+   The candidate closest to the aim wins; each extra unit costs PER_UNIT volts. */
+const PER_UNIT = 5;
+function designSearch(X, R, Iss, Is, Nc, Nh, UCmax, UHmax, VtAim){
+  const nh = Math.max(1, Math.ceil(Is*R/1000 / (UHmax/Nh)));
+  const Vt = VtAim == null ? Iss*R/1000*Nh/nh : VtAim;             // full compensation: aim = resistance only
+  const Zt = Vt*nh/Nh/Iss*1000;
+  const D = Math.sqrt(Math.max(Zt*Zt - R*R, 0));
+  const xc = C => 1e6/(2*Math.PI*F*C)/(Nc*Nc)*1000;                 // mΩ, loop side
+  const Cof = x => 1e6/(2*Math.PI*F*x*Nc*Nc/1000);                   // µF for a loop-side reactance x
+  const evalC = (n, cu, cl) => {
+    const XCt = n>0 ? (n-1)*xc(cu.v) + xc(cl.v) : 0;
+    const Xnet = X - XCt, Z = Math.hypot(R, Xnet);
+    const Vss = Iss*Z/1000*Nh/nh, Vst = Is*Z/1000*Nh/nh;
+    const Cmin = n>1 ? Math.min(cu.v, cl.v) : (n ? cl.v : 0);
+    const UCst = n>0 ? Is*xc(Cmin)*Nc/1000 : 0;
+    const valid = Vst <= UHmax && UCst <= UCmax;
+    return { n, cu, cl, Xnet, Vss, Vst, UCst, valid, nh, Vt, score: valid ? Math.abs(Vss-Vt) + PER_UNIT*n + (n>1 && cu.v !== cl.v ? 0.01 : 0) : 1e9 }; // small tie-break: same wiring on all units
+  };
+  let best = evalC(0, null, null);
+  const sols = VtAim == null ? [X] : [X - D, X + D];
+  for(const sXC of sols){
+    if(!(sXC > 0)) continue;
+    const ns = Math.max(1, Math.ceil(Is*sXC*Nc/1000/UCmax));
+    for(const n of [ns, ns+1]){
+      const Cid = Cof(sXC/n);
+      let fl = cfgFloor(Cid), ce = cfgCeil(Cid);
+      if(!fl) fl = ce; if(!ce) ce = fl;
+      for(const cu of [fl, ce]){
+        const rest = sXC - (n-1)*xc(cu.v);
+        const Cr = rest > 0 ? Cof(rest) : NaN;
+        const lastOpts = rest > 0 ? [cfgFloor(Cr), cfgCeil(Cr)].filter(Boolean) : [cfgNearest(NaN)];
+        for(const cl of lastOpts){
+          const c = evalC(n, cu, cl);
+          if(c.score < best.score) best = c;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/* ---------- fewest transformers: compensation + heating units together ----------
+   For each number of compensation units n, cancel as much reactance as the capacitor voltage allows,
+   then the heating units follow from the remaining loop voltage. Lowest total wins; on a tie fewer
+   compensation units, then the higher heating input (finer regulation). */
+function minTransformers(X, R, Iss, Is, Nc, Nh, UCmax, UHmax){
+  const xc = C => 1e6/(2*Math.PI*F*C)/(Nc*Nc)*1000;                 // mΩ, loop side
+  const Cof = x => 1e6/(2*Math.PI*F*x*Nc*Nc/1000);
+  const evalC = (n, cu, cl) => {
+    const XCt = n>0 ? (n-1)*xc(cu.v) + xc(cl.v) : 0;
+    const Xnet = X - XCt, Z = Math.hypot(R, Xnet);
+    const Cmin = n>1 ? Math.min(cu.v, cl.v) : (n ? cl.v : 0);
+    const UCst = n>0 ? Is*xc(Cmin)*Nc/1000 : 0;
+    const nh = Math.max(1, Math.ceil(Is*Z/1000 / (UHmax/Nh)));
+    const Vss = Iss*Z/1000*Nh/nh, Vst = Is*Z/1000*Nh/nh;
+    const valid = UCst <= UCmax && Vst <= UHmax;
+    return { n, cu, cl, Xnet, Vss, Vst, UCst, valid, nh, total: n + nh };
+  };
+  const better = (a, b) => !b || a.total < b.total || (a.total === b.total && (a.n < b.n || (a.n === b.n && a.Vst > b.Vst)));
+  let best = evalC(0, null, null);
+  const xcMax = UCmax*1000/(Is*Nc);                                  // largest per-unit reactance within the capacitor limit
+  const nFull = Math.ceil(X/xcMax) + 1;
+  for(let n = 1; n <= nFull; n++){
+    const sXC = Math.min(X, n*xcMax*0.999);
+    const Cid = Cof(sXC/n);
+    let fl = cfgFloor(Cid), ce = cfgCeil(Cid);
+    if(!fl) fl = ce; if(!ce) ce = fl;
+    for(const cu of [fl, ce]){
+      const rest = sXC - (n-1)*xc(cu.v);
+      const Cr = rest > 0 ? Cof(rest) : NaN;
+      const lastOpts = rest > 0 ? [cfgFloor(Cr), cfgCeil(Cr)].filter(Boolean) : [cfgNearest(NaN)];
+      for(const cl of lastOpts){
+        const c = evalC(n, cu, cl);
+        if(c.valid && better(c, best.valid ? best : null)) best = c;
+      }
+    }
+  }
+  return best;
+}
+
+/* ---------- connection diagram ----------
+   Can seen from above, as on the workshop drawing: 4 terminals, two independent 497.5 µF sections.
+   Back row: A (left) and B, section 1 between A and B.
+   Front row: C and D (right), section 2 between C and D.
+   Modes:  s = 500 µF: section C–D only, leads on C and D (A, B free)
+           r = 250 µF: link B–C, leads on A and D (sections in series)
+           p = 1000 µF: link A–C and B–D, leads on C and D (sections in parallel) */
+const MODE_TXT = {
+  s: "500 µF: leads on C and D, leave A and B free",
+  r: "250 µF: link B to C, leads on A and D",
+  p: "1000 µF: link A to C and B to D, leads on C and D"
+};
+const CAN = { // per mode: lead terminals (left side, right side), links, unused
+  s: { L:"C", R:"D", links:[], free:["A","B"] },
+  r: { L:"A", R:"D", links:[["B","C"]], free:[] },
+  p: { L:"C", R:"D", links:[["A","C"],["B","D"]], free:[] }
+};
+const DK = "#1A1D21", GR = "#A0A7AE", LINK = "#C1272D";
+function canSVG(x, m, label){
+  const P = { A:[x+20, 34], B:[x+96, 34], C:[x+50, 64], D:[x+134, 64] };
+  const c = CAN[m];
+  let g = `<rect x="${x}" y="14" width="154" height="74" rx="8" fill="#fff" stroke="${DK}" stroke-width="2"/>`;
+  g += `<text x="${x+77}" y="10" font-size="13" text-anchor="middle" fill="#5A626B">${label}</text>`;
+  const sect = (p1, p2) => {
+    const [x1,y] = p1, [x2] = p2, mid = (x1+x2)/2;
+    return `<path d="M${x1} ${y} H${mid-4} M${mid+4} ${y} H${x2}" stroke="${GR}" stroke-width="2"/>` +
+           `<path d="M${mid-4} ${y-8} V${y+8} M${mid+4} ${y-8} V${y+8}" stroke="${GR}" stroke-width="3"/>`;
+  };
+  g += sect(P.A, P.B) + sect(P.C, P.D);
+  c.links.forEach(([u,v]) => { g += `<line x1="${P[u][0]}" y1="${P[u][1]}" x2="${P[v][0]}" y2="${P[v][1]}" stroke="${LINK}" stroke-width="4" stroke-linecap="round"/>`; });
+  ["A","B","C","D"].forEach(t => {
+    const free = c.free.includes(t), [tx,ty] = P[t];
+    g += `<circle cx="${tx}" cy="${ty}" r="7" fill="${free ? "#fff" : DK}" stroke="${free ? GR : DK}" stroke-width="2"/>`;
+    g += `<text x="${tx+10}" y="${ty-8}" font-size="13" font-weight="700" fill="${free ? GR : DK}">${t}</text>`;
+  });
+  return { g, L:P[c.L], R:P[c.R] };
+}
+const W = d => `<path d="${d}" fill="none" stroke="${DK}" stroke-width="3" stroke-linecap="round"/>`;
+const DOT = (x,y) => `<circle cx="${x}" cy="${y}" r="4" fill="${DK}"/>`;
+function lead(p, toY, hops){ // wire from a terminal down to a rail, hopping over rails it crosses
+  const [x,y] = p;
+  let d = `M${x} ${y}`;
+  hops.filter(h => h > y && h < toY).sort((a,b) => a-b).forEach(h => { d += ` V${h-6} A6 6 0 0 1 ${x} ${h+6}`; });
+  d += ` V${toY}`;
+  return W(d) + DOT(x, toY);
+}
+function diagramSVG(cfg){
+  const R1 = 120, R2 = 150;                          // rails below the cans
+  const two = cfg.cans.length === 2;
+  const A = canSVG(30, cfg.cans[0], "Can 1"), B = two ? canSVG(206, cfg.cans[1], "Can 2") : null;
+  let g = A.g + (B ? B.g : "");
+  const term = (x,y,t,anchor) => `<circle cx="${x}" cy="${y}" r="7" fill="#FFC72C" stroke="${DK}" stroke-width="2"/><text x="${x}" y="${y+24}" font-size="13" font-weight="700" text-anchor="middle">${t}</text>`;
+  if(!two || cfg.join === "par"){
+    const Ls = [A.L].concat(B ? [B.L] : []), Rs = [A.R].concat(B ? [B.R] : []);
+    const r1end = Math.max(...Ls.map(p => p[0]));
+    g += W(`M14 ${R1} H${r1end}`) + W(`M14 ${R2} H${Math.max(...Rs.map(p => p[0]))}`);
+    Ls.forEach(p => g += lead(p, R1, []));
+    Rs.forEach(p => g += lead(p, R2, p[0] <= r1end ? [R1] : []));
+    g += term(14, R1, "") + term(14, R2, "");
+    g += `<text x="30" y="${R1+5}" font-size="13" font-weight="700" dx="-4" dy="-10">T1</text>`;
+    g += `<text x="30" y="${R2+24}" font-size="13" font-weight="700" dx="-4">T2</text>`;
+  } else {
+    const link = [Math.min(A.R[0], B.L[0]), Math.max(A.R[0], B.L[0])];
+    g += W(`M14 ${R1} H${A.L[0]}`) + W(`M${link[0]} ${R2} H${link[1]}`) + W(`M${B.R[0]} ${R1} H376`);
+    g += lead(A.L, R1, []) + lead(B.R, R1, []);
+    g += lead(A.R, R2, A.R[0] <= A.L[0] ? [R1] : []) + lead(B.L, R2, B.L[0] >= B.R[0] ? [R1] : []);
+    g += term(14, R1, "") + term(376, R1, "");
+    g += `<text x="14" y="${R1-14}" font-size="13" font-weight="700" text-anchor="middle">T1</text>`;
+    g += `<text x="376" y="${R1-14}" font-size="13" font-weight="700" text-anchor="middle">T2</text>`;
+  }
+  return `<svg viewBox="0 0 390 ${two && cfg.join === "ser" ? 165 : 182}" role="img" aria-label="Capacitor connection diagram, cans seen from above">${g}</svg>`;
+}
+function steps(cfg){
+  const out = [];
+  cfg.cans.forEach((m, i) => out.push(`Can ${i+1}, ${MODE_TXT[m]}.`));
+  if(cfg.cans.length === 1) out.push(`Leads to transformer terminals T1 and T2.`);
+  else out.push(cfg.join === "par"
+    ? `Cans in parallel: both left leads to T1, both right leads to T2.`
+    : `Cans in series: T1 → can 1 → can 2 → T2.`);
+  return out;
+}
+function cfgName(c){ return `${fmt(c.v)} µF`; }
+function diagramBlock(cfg, count, total){
+  const title = total > 1 ? `${count} × transformer: ${cfgName(cfg)}` : `Each transformer: ${cfgName(cfg)}`;
+  return `<div class="diagram"><h4>${title}</h4>${diagramSVG(cfg)}<ol>${steps(cfg).map(t => `<li>${t}</li>`).join("")}</ol></div>`;
+}
+
+function fmt(v, d=0){ return Number(v).toLocaleString("en-GB",{maximumFractionDigits:d, minimumFractionDigits:d}); }
+
+function num(id){ return parseFloat($(id).value); }
+
+function calc(){
+  const out = $("results");
+  const A = num("area"), L = num("L"), s = num("sp"), g = num("g"), tc = num("tc"), ta = num("ta");
+  const eps = num("eps"), corr = num("corr"), boost = num("boost")/100, ht = num("ht");
+  const Dest = Math.sqrt(4*A/Math.PI)*1.13;
+  $("diaHint").textContent = A > 0 ? `Leave empty to use the estimate for stranded conductor: ${fmt(Dest,1)} mm.` : "";
+  const D = num("dia") > 0 ? num("dia") : Dest;
+  if(!(A>0) || !(L>0) || !(s>0) || !(g>0) || isNaN(tc) || isNaN(ta) || tc <= ta || !(eps>0) || !(corr>0) || (state.startBy === "pct" ? !(boost > 0) : !(ht > 0))){
+    out.innerHTML = '<div class="empty">Enter the cross-section, the layout, both temperatures (conductor above room) and the heat-up time or overcurrent.</div>';
+    return;
+  }
+  const target = state.mode === "target", VtIn = num("vt");
+  if(target && !(VtIn > 0)){ out.innerHTML = '<div class="empty">Enter the heating transformer input voltage you want.</div>'; return; }
+  save();
+  const N = state.legs;
+  const h = bareHeating(A, D, state.mat, tc, ta, eps, corr);
+  let IsExact;
+  if(state.startBy === "time"){
+    IsExact = startForTime(ht*60, h.I, A, D, state.mat, tc, ta, eps, corr);
+    if(IsExact === null){
+      out.innerHTML = `<div class="empty">${fmt(ht)} minutes is too fast for this conductor (would need more than 6 × the hold current). Choose a longer heat-up time.</div>`;
+      return;
+    }
+  } else IsExact = h.I*(1+boost);
+  const Iss = Math.round(h.I), Is = Math.round(IsExact);
+  const tHeat = heatTime(Is, A, D, state.mat, tc, ta, eps, corr)/60;
+  const over = (Is/h.I - 1)*100;
+  const S = meander(N, L, s, g);
+  const len = S.reduce((t,p) => t + Math.hypot(p.x2-p.x1, p.y2-p.y1), 0);
+  const Lh = loopInductance(S, D/2000);
+  const X = 2*Math.PI*F*Lh*1000;                         // mΩ
+  const Rhot = h.Rac*len*1000 + RJOINT*3*N;              // mΩ
+  const Nc = state.nc, Nh = state.nh, UC = state.uc, UH = state.uh;
+  const t = state.mode === "min" ? minTransformers(X, Rhot, Iss, Is, Nc, Nh, UC, UH)
+                                 : designSearch(X, Rhot, Iss, Is, Nc, Nh, UC, UH, target ? VtIn : null);
+
+  let html = `
+    <div class="band">
+      <div class="big">${fmt(Is)}<small>A</small></div>
+      <div class="sub">Start current (+${fmt(over)} %), reaches ${fmt(tc, Number.isInteger(tc) ? 0 : 1)} °C in about <b>${fmt(tHeat)} min</b>. Then lower to <b>${fmt(Iss)} A</b> to hold the temperature.</div>
+    </div>
+    <div class="sketch">${sketchSVG(S, N, L, s, g)}
+      <div class="kv">
+        <span>Conductor length</span><span>${fmt(len,1)} m</span>
+        <span>Loop inductance</span><span>${fmt(Lh*1e6,1)} µH (${fmt(X,2)} mΩ)</span>
+        <span>Loop resistance at ${fmt(tc,0)} °C</span><span>${fmt(Rhot,2)} mΩ</span>
+        <span>Losses</span><span>${fmt(h.Q,0)} W/m</span>
+      </div>
+    </div>`;
+  if(!t.valid){
+    out.innerHTML = html + `<div class="block"><h3>No setup found</h3>
+      <div class="detail">Nothing fits within ${UC} V on the capacitors and ${UH} V on the heating transformers.</div>
+      <span class="status bad">Try another ratio or 400 V</span></div>`;
+    return;
+  }
+  let comp;
+  if(t.n === 0) comp = '<div class="detail">No compensation transformers needed.</div>';
+  else {
+    const groups = (t.n === 1 || t.cu === t.cl) ? [[t.cl, t.n]] : [[t.cu, t.n - 1], [t.cl, 1]];
+    comp = groups.map(([c, k]) => diagramBlock(c, k, groups.length > 1 ? 2 : 1)).join("") +
+      `<div class="detail">Highest capacitor voltage at start: ${fmt(t.UCst)} V</div>
+       <span class="status">Below ${UC} V</span>`;
+  }
+  const kind = Math.abs(t.Xnet) < 0.05*X ? "about fully compensated" : (t.Xnet > 0 ? "under-compensated" : "over-compensated");
+  html += `
+    <div class="block">
+      <h3>Compensation transformers (1:${Nc}, max ${UC} V)</h3>
+      <div class="count">${t.n} <small>pcs</small></div>
+      ${comp}
+      ${t.n ? `<div class="detail">Loop is ${kind}.</div>` : ""}
+    </div>
+    <div class="block">
+      <h3>Heating transformers (1:${Nh}, ${UH} V supply)</h3>
+      <div class="count">${t.nh} <small>pcs</small></div>
+      <div class="detail">Input while holding temperature: about <b>${fmt(t.Vss)} V</b>${target ? ` (aim ${fmt(VtIn)} V)` : ""}</div>
+      ${target && Math.abs(t.Vss - VtIn) > 0.1*VtIn ? `<div class="detail">This is the closest this loop allows.</div>` : ""}
+      <div class="detail">Input at start: about ${fmt(t.Vst)} V</div>
+      ${state.mode === "min" ? `<div class="detail">Transformers on the loop in total: <b>${t.n + t.nh}</b></div>` : ""}
+      <span class="status">Below ${UH} V supply</span>
+    </div>`;
+  out.innerHTML = html;
+}
+
+/* ---------- settings from the link (QR labels) ----------
+   ?t=80 sets both transformer ratios (printed labels); any state key can also be set, e.g. ?nc=140&nh=80 */
+function applyLinkParams(){
+  try{
+    const q = new URLSearchParams(location.search);
+    if(q.has("t")){ const t = Number(q.get("t")); if(UH_MAX[t]){ state.nc = t; state.nh = t; } }
+    Object.keys(state).forEach(k => {
+      if(!q.has(k)) return;
+      const v = q.get(k), n = Number(v);
+      state[k] = (v !== "" && !isNaN(n) && typeof state[k] === "number") ? n : v;
+    });
+  }catch(e){}
+}
+/* ---------- offline use ---------- */
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+/* ---------- remember last inputs on this device ---------- */
+const KEY = "bare-conductor-heating-v4";
+const FIELDS = ["area","dia","L","sp","g","tc","ta","vt","eps","corr","boost","ht"];
+function save(){
+  try{
+    const v = { ...state }; FIELDS.forEach(k => v[k] = $(k).value);
+    localStorage.setItem(KEY, JSON.stringify(v));
+  }catch(e){}
+}
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY) || "null");
+    if(!s) return;
+    Object.keys(state).forEach(k => { if(s[k] !== undefined) state[k] = s[k]; });
+    FIELDS.forEach(k => { if(s[k] !== undefined) $(k).value = s[k]; });
+  }catch(e){}
+}
+
+load();
+applyLinkParams();
+enforce();
+renderSegs();
+showFields();
+FIELDS.forEach(id => $(id).addEventListener("input", calc));
+calc();
+</script>
+</body>
+</html>
