@@ -222,7 +222,7 @@
     <div class="results" id="results" aria-live="polite"></div>
   </div>
 
-  <p class="foot">Version 1.0 (2026-11-05). Method: heat balance for a bare conductor in still indoor air (natural convection and radiation as in CIGRE TB 601, no sun, no wind), AC resistance with skin effect (IEC 60287-1-1). Loop inductance from the partial inductances of all straight segments (Grover). Heat-loss correction 0.93 (calibrated on 95 mm² Al, 355 A at 125 °C). Heat-up time is for the conductor itself; connectors under test follow a few minutes later. Connections: 20 µΩ per joint, 3 per leg (test connector and both leg ends). 1:80 and 1:140 transformers max 230 V, 1:40 max 400 V. 50 Hz.</p>
+  <p class="foot">Version 1.1 (2026-11-13). Method: heat balance for a bare conductor in still indoor air (natural convection and radiation as in CIGRE TB 601, no sun, no wind), AC resistance with skin effect (IEC 60287-1-1). Loop inductance from the partial inductances of all straight segments (Grover). Heat-loss correction 0.93 (calibrated on 95 mm² Al, 355 A at 125 °C). Heat-up time is for the conductor itself; connectors under test follow a few minutes later. Connections: 20 µΩ per joint, 3 per leg (test connector and both leg ends). 1:80 and 1:140 transformers max 230 V, 1:40 max 400 V. 50 Hz.</p>
 </div>
 
 <script>
@@ -479,6 +479,38 @@ function minTransformers(X, R, Iss, Is, Nc, Nh, UCmax, UHmax){
   return best;
 }
 
+/* ---------- current limits (nameplates) ----------
+   1:80  D.V.V. "štapni transformator": nameplate 230 V / 2.8 V, 30 A / 2.4 kA, window just under 150 mm (cable max 140 mm).
+         Used successfully at 3200 A, so rated here at 2800 A with margin.
+   1:40  Shanghai Himalayal HCTS6000A/10V: 400 V / 10 V, 150 A / 6000 A, 60 kVA
+   1:140 no nameplate data: assumed tighter than the 1:80 (2000 A, cable max 140 mm)
+   Regulating transformer HVGrand SXSA-30: 230 V in, 0–230 V out, 43 A, 10 kVA; in practice 32 A because of its fuse;
+   one per loop: all heating transformers of the main loop on one, the dummy loop on another. */
+const RATED_I = { 80: 2800, 40: 6000, 140: 2000 };
+const MAX_D   = { 80: 140, 40: null, 140: 140 };        // mm, cable outer diameter through the window
+const ASSUMED = { 140: true };
+const PLATE = { 80: "D.V.V., nameplate 2.4 kA, proven at 3.2 kA", 40: "Himalayal HCTS6000A/10V, 400 V / 10 V, 150 A / 6 kA", 140: "assumed, no nameplate data" };
+const REG = { name: "HVGrand SXSA-30", I: 32 };   // 43 A on the nameplate, 32 A fuse
+function limitsHTML(Is, Nh, Nc, UH, nh, ncomp, D){
+  let h = "", bad = false;
+  const check = (N, role) => {
+    const r = RATED_I[N], ok = Is <= r; if(!ok) bad = true;
+    h += `<div class="detail">${role}: loop current at start ${fmt(Is)} A, 1:${N} rated <b>${fmt(r)} A</b> (${PLATE[N]})${ok ? "" : " – <b>too high</b>"}.</div>`;
+    const dmax = MAX_D[N];
+    if(dmax && D){ const fits = D <= dmax; if(!fits) bad = true;
+      h += `<div class="detail">Conductor ${fmt(D)} mm through the 1:${N} window (max ${dmax} mm${ASSUMED[N] ? ", assumed" : ""})${fits ? ": fits" : ": <b>does not fit</b>"}.</div>`; }
+  };
+  check(Nh, "Heating");
+  if(ncomp > 0 && Nc !== Nh) check(Nc, "Compensation");
+  if(UH === 230){
+    const Ip = Is/Nh, total = nh*Ip, ok = total <= REG.I; if(!ok) bad = true;
+    h += `<div class="detail">Regulating transformer ${REG.name}, one for this loop: ${nh} × ${fmt(Ip,1)} A = <b>${fmt(total,1)} A</b> of ${REG.I} A (fuse)${ok ? "" : " – <b>too high</b>"}. The dummy loop has its own.</div>`;
+  } else {
+    h += `<div class="detail">400 V supply: the ${REG.name} is 230 V only, a 400 V regulator is needed (${fmt(nh*Is/Nh,1)} A in total).</div>`;
+  }
+  return { html: h, bad };
+}
+
 /* ---------- connection diagram ----------
    Can seen from above, as on the workshop drawing: 4 terminals, two independent 497.5 µF sections.
    Back row: A (left) and B, section 1 between A and B.
@@ -622,6 +654,7 @@ function calc(){
   if(!t.valid){
     out.innerHTML = html + `<div class="block"><h3>No setup found</h3>
       <div class="detail">Nothing fits within ${UC} V on the capacitors and ${UH} V on the heating transformers.</div>
+      ${RATED_I[Nh] && Is > RATED_I[Nh] ? `<div class="detail">The start current ${fmt(Is)} A is also above the ${fmt(RATED_I[Nh])} A rating of the 1:${Nh} transformers.</div>` : ""}
       <span class="status bad">Try another ratio or 400 V</span></div>`;
     return;
   }
@@ -633,6 +666,7 @@ function calc(){
       `<div class="detail">Highest capacitor voltage at start: ${fmt(t.UCst)} V</div>
        <span class="status">Below ${UC} V</span>`;
   }
+  const lim = limitsHTML(Is, Nh, Nc, UH, t.nh, t.n, D);
   const kind = Math.abs(t.Xnet) < 0.05*X ? "about fully compensated" : (t.Xnet > 0 ? "under-compensated" : "over-compensated");
   html += `
     <div class="block">
@@ -648,7 +682,9 @@ function calc(){
       ${target && Math.abs(t.Vss - VtIn) > 0.1*VtIn ? `<div class="detail">This is the closest this loop allows.</div>` : ""}
       <div class="detail">Input at start: about ${fmt(t.Vst)} V</div>
       ${state.mode === "min" ? `<div class="detail">Transformers on the loop in total: <b>${t.n + t.nh}</b></div>` : ""}
+      ${lim.html}
       <span class="status">Below ${UH} V supply</span>
+      <span class="status ${lim.bad ? "bad" : ""}">${lim.bad ? "Current limit exceeded – check in the office" : "Within current ratings"}</span>
     </div>`;
   out.innerHTML = html;
 }
@@ -658,7 +694,8 @@ function calc(){
 function applyLinkParams(){
   try{
     const q = new URLSearchParams(location.search);
-    if(q.has("t")){ const t = Number(q.get("t")); if(UH_MAX[t]){ state.nc = t; state.nh = t; } }
+    if(q.has("t") && typeof UH_MAX !== "undefined"){ const t = Number(q.get("t")); if(UH_MAX[t]){ state.nc = t; state.nh = t; } }
+    if(q.has("lang") && typeof LANG !== "undefined"){ const l = q.get("lang"); if(l === "hr" || l === "en") LANG = l; }
     Object.keys(state).forEach(k => {
       if(!q.has(k)) return;
       const v = q.get(k), n = Number(v);

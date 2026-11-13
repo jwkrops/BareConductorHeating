@@ -34,6 +34,15 @@ Scanning a label opens the calculator with both transformer ratios set to 1:140 
 - **Transformer limits:** 1:80 and 1:140 max 230 V, 1:40 max 400 V.
 - **Aims:** *Full compensation*, *Heating input voltage* (deliberate under- or over-compensation for finer autotransformer regulation) or *Fewest transformers* (compensation + heating together). Candidates that exceed a voltage limit at the start current are rejected.
 
+## Current limits checked
+
+| Item | Limit used | Source |
+|---|---|---|
+| 1:80 transformer (D.V.V.) | 2800 A loop current; cable ≤ 140 mm through the window | Nameplate 2.4 kA, proven at 3.2 kA; window just under 150 mm |
+| 1:40 transformer (Shanghai Himalayal HCTS6000A/10V) | 6000 A | Nameplate 400 V / 10 V, 150 A / 6 kA, 60 kVA |
+| 1:140 transformer | 2000 A, cable ≤ 140 mm (assumed) | No nameplate data yet |
+| Regulating transformer HVGrand SXSA-30 | 32 A total primary current per loop | Nameplate 43 A, limited by the 32 A fuse; one regulator per loop (main and dummy loop each have their own) |
+
 ## Calibration
 
 The heat-loss correction (under *Advanced*) is the measured current² divided by the current² the app gives with the correction at 1.0, both at the same steady temperature. Heat runs on further cross-sections will show whether 0.93 holds across the range.
@@ -41,13 +50,14 @@ The heat-loss correction (under *Advanced*) is the measured current² divided by
 ## Updating
 
 1. Replace the changed file(s) in the repository.
-2. Raise `VERSION` in `sw.js` (for example `v1.0` → `v1.1`), otherwise phones that used the site offline keep the old files for longer.
+2. Raise `VERSION` in `sw.js` (for example `v1.1` → `v1.2`), otherwise phones that used the site offline keep the old files for longer.
 3. Update the version number in the footer of `index.html`.
 
 ## Version history
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.1 | 2026-11-13 | Current limits: transformer ratings, window size, regulating transformer (32 A) |
 | 1.0 | 2026-11-05 | First published version |
 
-See also: [Loop heating setup](https://jwkrops.github.io/LoopHeatingCalculator/) for heat cycle loops of MV/HV cable.
+See also: [Loop heating setup](https://jwkrops.github.io/LoopHeatingCalculator/) for heat cycle loops of MV/HV cable, and [ASI preheating](https://jwkrops.github.io/ASIPreheating/) for preheating with ASI-20 current sources.
